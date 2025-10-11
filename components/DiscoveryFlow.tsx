@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, XCircle, AlertCircle, Trash2, Mail, Send } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, AlertCircle, Trash2, Mail, Send, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Hit {
   provider: string;
@@ -27,8 +27,12 @@ interface AppStatus {
 
 interface DiscoveryFlowProps {
   email: string;
+  dataSubjectName?: string;
+  requestDate?: string;
   onComplete?: () => void;
   autoStart?: boolean;
+  onStepChange?: (step: string) => void;
+  onStatusChange?: (status: "Open" | "Closed") => void;
 }
 
 const knownEmails = [
@@ -46,28 +50,55 @@ const knownEmails = [
   "emailmaria@hubspot.com",
 ];
 
-export function DiscoveryFlow({ email, onComplete, autoStart = false }: DiscoveryFlowProps) {
+export function DiscoveryFlow({ 
+  email, 
+  dataSubjectName, 
+  requestDate, 
+  onComplete, 
+  autoStart = false, 
+  onStepChange,
+  onStatusChange 
+}: DiscoveryFlowProps) {
   const [currentStep, setCurrentStep] = useState<
     "idle" | "searching" | "results" | "review" | "ready-to-delete" | "deleting" | "deleted" | "email-acknowledgement"
   >(autoStart ? "searching" : "idle");
   const [appStatuses, setAppStatuses] = useState<AppStatus[]>([]);
   const [isReviewing, setIsReviewing] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [expandedApps, setExpandedApps] = useState<Set<string>>(new Set());
 
   const registeredApps = [
-    { id: "hubspot", name: "HubSpot", logo: "H" },
-    { id: "asana", name: "Asana", logo: "A" },
-    { id: "shopify", name: "Shopify", logo: "S" },
-    { id: "meta", name: "Meta Ads", logo: "M" },
+    { id: "hubspot", name: "HubSpot", logo: "/logos/hubspot.svg" },
+    { id: "asana", name: "Asana", logo: "/logos/asana.svg" },
+    { id: "shopify", name: "Shopify", logo: "/logos/shopify.svg" },
+    { id: "meta", name: "Meta Ads", logo: "/logos/meta-icon.svg" },
   ];
 
   const foundApps = appStatuses.filter((app) => app.hits && app.hits.length > 0);
+
+  const toggleAppExpanded = (appId: string) => {
+    setExpandedApps((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(appId)) {
+        newSet.delete(appId);
+      } else {
+        newSet.add(appId);
+      }
+      return newSet;
+    });
+  };
 
   React.useEffect(() => {
     if (autoStart && email) {
       handleDiscover();
     }
   }, [autoStart, email]);
+
+  React.useEffect(() => {
+    if (onStepChange) {
+      onStepChange(currentStep);
+    }
+  }, [currentStep, onStepChange]);
 
   const handleDiscover = async () => {
     setCurrentStep("searching");
@@ -180,6 +211,11 @@ export function DiscoveryFlow({ email, onComplete, autoStart = false }: Discover
     // Simulate email sending
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
+    // Update status to Closed
+    if (onStatusChange) {
+      onStatusChange("Closed");
+    }
+    
     if (onComplete) {
       onComplete();
     }
@@ -210,148 +246,169 @@ export function DiscoveryFlow({ email, onComplete, autoStart = false }: Discover
             </div>
           </div>
 
-          {/* App List - matching App Discovery style */}
+          {/* App List with Collapsible Data Subject Location Index */}
           <div className="bg-white rounded-lg shadow-sm divide-y divide-gray-100 mb-6">
             {appStatuses.map((app) => (
-              <div
-                key={app.appId}
-                className="group hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 p-5"
-              >
-                <div className="flex items-center gap-4">
-                  {/* App Icon */}
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl shadow-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md ${
-                        app.status === "searching"
-                          ? "bg-gray-400 animate-pulse"
-                          : app.status === "found"
-                          ? "bg-gradient-to-br from-green-500 to-emerald-600"
-                          : app.status === "not-found"
-                          ? "bg-gradient-to-br from-gray-300 to-gray-400"
-                          : app.status === "complete" && app.hits
-                          ? "bg-gradient-to-br from-green-500 to-emerald-600"
-                          : "bg-gradient-to-br from-blue-500 to-indigo-600"
-                      }`}
-                    >
-                      {app.logo}
+              <div key={app.appId} className="transition-all duration-200">
+                {/* App Header - Clickable if has data */}
+                <div
+                  className={`group p-5 ${
+                    app.hits && currentStep !== "searching"
+                      ? "cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50"
+                      : "hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50"
+                  }`}
+                  onClick={() => app.hits && currentStep !== "searching" && toggleAppExpanded(app.appId)}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* App Icon */}
+                    <div className="flex-shrink-0">
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md overflow-hidden ${
+                          app.status === "searching"
+                            ? "bg-white border-2 border-gray-300 animate-pulse"
+                            : app.status === "found"
+                            ? "bg-white border-2 border-green-500"
+                            : app.status === "not-found"
+                            ? "bg-white border-2 border-gray-300"
+                            : app.status === "complete" && app.hits
+                            ? "bg-white border-2 border-green-500"
+                            : "bg-white border-2 border-blue-500"
+                        }`}
+                      >
+                        <img 
+                          src={app.logo} 
+                          alt={`${app.appName} logo`} 
+                          className="w-8 h-8 object-contain"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* App Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-lg font-semibold text-gray-900 truncate">{app.appName}</h3>
+                    {/* App Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">{app.appName}</h3>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-gray-500">{app.appId}</span>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-gray-600 truncate">Registered application</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-500">{app.appId}</span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-gray-600 truncate">Registered application</span>
-                    </div>
-                  </div>
 
-                  {/* Status - right aligned */}
-                  <div className="flex-shrink-0 min-w-[140px] flex justify-end">
-                    {app.status === "searching" && (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                        <span className="text-sm text-blue-600 font-medium">Searching...</span>
-                      </div>
-                    )}
-                    {app.status === "found" && (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <span className="text-sm font-semibold text-green-700">Data Found</span>
-                      </div>
-                    )}
-                    {app.status === "not-found" && (
-                      <div className="flex items-center gap-2">
-                        <XCircle className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-500">No Data</span>
-                      </div>
-                    )}
-                    {app.status === "complete" && !app.hits && (
-                      <div className="flex items-center gap-2">
-                        <XCircle className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-500">No Data</span>
-                      </div>
-                    )}
-                    {app.status === "complete" && app.hits && (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <span className="text-sm font-semibold text-green-700">
-                          {app.hits.length} hit{app.hits.length > 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    )}
+                    {/* Status & Dropdown Icon - right aligned */}
+                    <div className="flex-shrink-0 min-w-[140px] flex items-center justify-end gap-2">
+                      {app.status === "searching" && (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                          <span className="text-sm text-blue-600 font-medium">Searching...</span>
+                        </div>
+                      )}
+                      {app.status === "found" && (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          <span className="text-sm font-semibold text-green-700">Data Found</span>
+                        </div>
+                      )}
+                      {app.status === "not-found" && (
+                        <div className="flex items-center gap-2">
+                          <XCircle className="h-5 w-5 text-gray-400" />
+                          <span className="text-sm text-gray-500">No Data</span>
+                        </div>
+                      )}
+                      {app.status === "complete" && !app.hits && (
+                        <div className="flex items-center gap-2">
+                          <XCircle className="h-5 w-5 text-gray-400" />
+                          <span className="text-sm text-gray-500">No Data</span>
+                        </div>
+                      )}
+                      {app.status === "complete" && app.hits && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <span className="text-sm font-semibold text-green-700">
+                              {app.hits.length} hit{app.hits.length > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          {currentStep !== "searching" && (
+                            expandedApps.has(app.appId) ? (
+                              <ChevronUp className="h-5 w-5 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            )
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Collapsible Data Subject Location Index for this app */}
+                {app.hits && expandedApps.has(app.appId) && currentStep !== "searching" && (
+                  <div className="px-5 pb-5 bg-gray-50">
+                    <div className="border-t border-gray-200 pt-4">
+                      <h5 className="text-sm font-semibold text-gray-700 mb-3">Data Subject Location Index</h5>
+                      <div className="space-y-3">
+                        {app.hits.map((hit, idx) => (
+                          <div key={`${app.appId}-${idx}`} className="bg-white rounded-lg p-4 border border-gray-200">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Provider</div>
+                                <div className="font-medium text-gray-900">{app.appName}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Resource Type</div>
+                                <div className="font-medium text-gray-900">{hit.resourceType}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Native ID</div>
+                                <div className="font-mono text-sm text-gray-700">{hit.nativeId}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Match Fields</div>
+                                <div className="text-sm text-gray-700">{hit.matchFields.join(", ")}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Confidence</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="font-medium text-gray-900">{(hit.confidence * 100).toFixed(1)}%</div>
+                                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-green-500 h-2 rounded-full"
+                                      style={{ width: `${hit.confidence * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Action Hint</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-red-600">{hit.actionHint}</span>
+                                </div>
+                              </div>
+                              <div className="col-span-2">
+                                <div className="text-xs text-gray-500 mb-1">Reason</div>
+                                <div className="text-sm text-gray-700">{hit.reason}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Preview URL</div>
+                                <a href={hit.previewUrl} className="text-sm text-blue-600 hover:underline" target="_blank">
+                                  View Record
+                                </a>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Evidence Ref</div>
+                                <div className="font-mono text-xs text-gray-600">{hit.evidenceRef}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-
-          {currentStep !== "searching" && foundApps.length > 0 && (
-            <div className="border-t border-gray-200 pt-6">
-              <h4 className="font-semibold mb-4">Data Subject Location Index</h4>
-              <div className="space-y-4">
-                {foundApps.map((app) =>
-                  app.hits?.map((hit, idx) => (
-                    <div key={`${app.appId}-${idx}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Provider</div>
-                          <div className="font-medium text-gray-900">{app.appName}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Resource Type</div>
-                          <div className="font-medium text-gray-900">{hit.resourceType}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Native ID</div>
-                          <div className="font-mono text-sm text-gray-700">{hit.nativeId}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Match Fields</div>
-                          <div className="text-sm text-gray-700">{hit.matchFields.join(", ")}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Confidence</div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-medium text-gray-900">{(hit.confidence * 100).toFixed(1)}%</div>
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-green-500 h-2 rounded-full"
-                                style={{ width: `${hit.confidence * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Action Hint</div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-red-600">{hit.actionHint}</span>
-                          </div>
-                        </div>
-                        <div className="col-span-2">
-                          <div className="text-xs text-gray-500 mb-1">Reason</div>
-                          <div className="text-sm text-gray-700">{hit.reason}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Preview URL</div>
-                          <a href={hit.previewUrl} className="text-sm text-blue-600 hover:underline" target="_blank">
-                            View Record
-                          </a>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Evidence Ref</div>
-                          <div className="font-mono text-xs text-gray-600">{hit.evidenceRef}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
 
           {currentStep === "results" && foundApps.length > 0 && (
             <div className="mt-6 flex justify-end">
@@ -452,17 +509,21 @@ export function DiscoveryFlow({ email, onComplete, autoStart = false }: Discover
               >
                 <div className="flex items-center gap-4">
                   {/* App Icon */}
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl shadow-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+                  <div className="flex-shrink-0">
                     <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md ${
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md overflow-hidden ${
                         app.status === "deleting"
-                          ? "bg-gradient-to-br from-orange-500 to-red-600 animate-pulse"
+                          ? "bg-white border-2 border-orange-500 animate-pulse"
                           : app.status === "deleted"
-                          ? "bg-gradient-to-br from-gray-400 to-gray-500"
-                          : "bg-gradient-to-br from-green-500 to-emerald-600"
+                          ? "bg-white border-2 border-gray-400"
+                          : "bg-white border-2 border-green-500"
                       }`}
                     >
-                      {app.logo}
+                      <img 
+                        src={app.logo} 
+                        alt={`${app.appName} logo`} 
+                        className="w-8 h-8 object-contain"
+                      />
                     </div>
                   </div>
 
@@ -630,14 +691,54 @@ export function DiscoveryFlow({ email, onComplete, autoStart = false }: Discover
             </Button>
           </div>
 
-          {emailSent && (
-            <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-              <p className="text-sm text-green-800">
-                Acknowledgement email sent successfully to <span className="font-semibold">{email}</span>
-              </p>
-            </div>
-          )}
+          {emailSent && (() => {
+            const now = new Date();
+            const currentDateTime = now.toLocaleString('en-US', { 
+              month: 'long', 
+              day: 'numeric', 
+              year: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+            
+            // Calculate days since request
+            let daysSinceRequest = 1; // Default
+            let daysAheadOfSchedule = 44; // Default (45 - 1)
+            
+            if (requestDate) {
+              const reqDate = new Date(requestDate);
+              const diffTime = Math.abs(now.getTime() - reqDate.getTime());
+              daysSinceRequest = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              daysAheadOfSchedule = 45 - daysSinceRequest;
+            }
+            
+            return (
+              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-6">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <p className="text-sm text-green-800">
+                      Acknowledgement email sent successfully to{' '}
+                      <span className="font-semibold">{dataSubjectName || email}</span> at{' '}
+                      <span className="font-semibold">{currentDateTime}</span>.
+                    </p>
+                    <p className="text-sm text-green-800">
+                      Case closed in{' '}
+                      <span className="font-semibold">{daysSinceRequest} {daysSinceRequest === 1 ? 'day' : 'days'}</span>.
+                    </p>
+                    {daysAheadOfSchedule > 0 && (
+                      <p className="text-sm text-green-800">
+                        Case closed{' '}
+                        <span className="font-semibold">{daysAheadOfSchedule} {daysAheadOfSchedule === 1 ? 'day' : 'days'}</span>{' '}
+                        ahead of schedule.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

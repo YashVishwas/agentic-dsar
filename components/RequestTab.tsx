@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Filter, Play, Download, Trash2, X, FileText, UserCircle, Sparkles } from "lucide-react";
+import { Search, Plus, Filter, Play, Download, Trash2, X, FileText, UserCircle, Sparkles, CheckCircle2 } from "lucide-react";
 import { DiscoveryFlow } from "@/components/DiscoveryFlow";
 
 interface Request {
@@ -15,7 +15,7 @@ interface Request {
   requestDate: string;
   createdBy: string;
   assignee: string;
-  status: "Open" | "Unverified";
+  status: "Open" | "Unverified" | "Closed";
 }
 
 // Dummy data based on the provided names and emails
@@ -25,7 +25,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Jacob Moore",
     email: "jacob.moore54@email.com",
     requestType: "Deletion",
-    requestDate: "Feb 5, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -35,7 +35,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Ella Kim",
     email: "ella.kim001@email.com",
     requestType: "Download",
-    requestDate: "Mar 21, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -45,7 +45,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Liam Carter",
     email: "liam.carter889@email.com",
     requestType: "Download",
-    requestDate: "Mar 19, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -55,7 +55,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Chloe Evans",
     email: "chloe.evans22@email.com",
     requestType: "Download",
-    requestDate: "Mar 17, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Unverified",
@@ -65,7 +65,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Mason Rivera",
     email: "mason.rivera@email.com",
     requestType: "Deletion",
-    requestDate: "Mar 6, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "RK",
     status: "Unverified",
@@ -75,7 +75,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Sophia Patel",
     email: "sophia.patel77@email.com",
     requestType: "Download",
-    requestDate: "Feb 17, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Data Subject",
     assignee: "AR",
     status: "Unverified",
@@ -85,7 +85,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Ethan Brooks",
     email: "ethan.brooks246@email.com",
     requestType: "Deletion",
-    requestDate: "Feb 13, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "YS",
     status: "Unverified",
@@ -95,7 +95,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Mia Harper",
     email: "mia.harper@email.com",
     requestType: "Deletion",
-    requestDate: "Feb 12, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -105,7 +105,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Lucas Bennett",
     email: "lucas.ben123@email.com",
     requestType: "Download",
-    requestDate: "Feb 10, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -115,7 +115,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Ava Thompson",
     email: "ava.thompson98@email.com",
     requestType: "Download",
-    requestDate: "Feb 8, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -125,7 +125,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Brian Halligan",
     email: "bh@hubspot.com",
     requestType: "Deletion",
-    requestDate: "Feb 5, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Data Subject",
     assignee: "I",
     status: "Open",
@@ -135,7 +135,7 @@ const dummyRequests: Request[] = [
     dataSubject: "Maria Johnson",
     email: "emailmaria@hubspot.com",
     requestType: "Download",
-    requestDate: "Feb 3, 2025",
+    requestDate: "Oct 10, 2025",
     createdBy: "Agent",
     assignee: "I",
     status: "Open",
@@ -149,6 +149,8 @@ export function RequestTab() {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [activeDataTab, setActiveDataTab] = useState<"user-data" | "events">("user-data");
   const [agentHandoffStarted, setAgentHandoffStarted] = useState(false);
+  const [workflowStep, setWorkflowStep] = useState<string>("idle");
+  const [requestStatus, setRequestStatus] = useState<"Open" | "Unverified" | "Closed">("Open");
 
   const inProgressRequests = dummyRequests;
   const inProgressCount = inProgressRequests.length;
@@ -169,106 +171,227 @@ export function RequestTab() {
       request.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Callback for workflow step changes
+  const handleStepChange = useCallback((step: string) => {
+    console.log("Step changed to:", step); // Debug log
+    setWorkflowStep(step);
+  }, []);
+
+  const handleStatusChange = useCallback((status: "Open" | "Closed") => {
+    console.log("Status changed to:", status); // Debug log
+    setRequestStatus(status);
+  }, []);
+
+  // Helper function to check if a workflow step is completed
+  const isStepCompleted = (stepName: string) => {
+    // Map progress box names to workflow steps
+    const stepMapping = {
+      "search": ["results", "review", "ready-to-delete", "deleting", "deleted", "email-acknowledgement"],
+      "review": ["ready-to-delete", "deleting", "deleted", "email-acknowledgement"],
+      "redact": ["deleted", "email-acknowledgement"],
+      "respond": ["email-acknowledgement"]
+    };
+    
+    const requiredSteps = stepMapping[stepName as keyof typeof stepMapping];
+    if (!requiredSteps) return false;
+    
+    const completed = requiredSteps.includes(workflowStep);
+    console.log(`Step ${stepName} completed?`, completed, `(workflowStep: ${workflowStep})`); // Debug log
+    return completed;
+  };
+
   // If a request is selected, show detailed view
   if (selectedRequest) {
     return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setSelectedRequest(null);
-                setAgentHandoffStarted(false);
-              }}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div>
-              <div className="text-sm text-gray-500">Requests / {selectedRequest.id}</div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {selectedRequest.requestType === "Deletion" ? "Data Deletion Request" : "Data Download Request"}
-              </h1>
+      <div className="flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
+        {/* Fixed Header Section */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200">
+          {/* Top Header */}
+          <div className="px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedRequest(null);
+                    setAgentHandoffStarted(false);
+                    setWorkflowStep("idle");
+                    setRequestStatus("Open");
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <div>
+                  <div className="text-sm text-gray-500">Requests / {selectedRequest.id}</div>
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      {selectedRequest.requestType === "Deletion" ? "Data Deletion Request" : "Data Download Request"}
+                    </h1>
+                    
+                    {/* Inline Progress Indicators */}
+                    {agentHandoffStarted && (
+                      <div className="flex items-center gap-2 ml-6">
+                        {/* Search */}
+                        <div className="flex items-center gap-1.5">
+                          {isStepCompleted("search") ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            isStepCompleted("search") ? "text-green-700" : "text-gray-500"
+                          }`}>
+                            Search
+                          </span>
+                        </div>
+
+                        <span className="text-gray-300 text-sm">→</span>
+
+                        {/* Review */}
+                        <div className="flex items-center gap-1.5">
+                          {isStepCompleted("review") ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            isStepCompleted("review") ? "text-green-700" : "text-gray-500"
+                          }`}>
+                            Review
+                          </span>
+                        </div>
+
+                        <span className="text-gray-300 text-sm">→</span>
+
+                        {/* Redact */}
+                        <div className="flex items-center gap-1.5">
+                          {isStepCompleted("redact") ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            isStepCompleted("redact") ? "text-green-700" : "text-gray-500"
+                          }`}>
+                            Redact
+                          </span>
+                        </div>
+
+                        <span className="text-gray-300 text-sm">→</span>
+
+                        {/* Respond */}
+                        <div className="flex items-center gap-1.5">
+                          {isStepCompleted("respond") ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            isStepCompleted("respond") ? "text-green-700" : "text-gray-500"
+                          }`}>
+                            Respond
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="outline">
+                  <UserCircle className="h-4 w-4 mr-2" />
+                  Assign User
+                </Button>
+                <Button 
+                  onClick={() => setAgentHandoffStarted(true)}
+                  disabled={agentHandoffStarted}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Agent Handoff
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline">
-              <UserCircle className="h-4 w-4 mr-2" />
-              Assign User
-            </Button>
-            <Button 
-              onClick={() => setAgentHandoffStarted(true)}
-              disabled={agentHandoffStarted}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Agent Handoff
-            </Button>
+
+          {/* Request Info Card */}
+          <div className="px-8 pb-6">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-700">Manage Data Subject Request</h2>
+              </div>
+              <div className="grid grid-cols-3 gap-6 mb-4">
+                <div>
+                  <span className="text-sm text-gray-500">Status:</span>
+                  <Badge
+                    className={
+                      requestStatus === "Open"
+                        ? "ml-2 bg-blue-100 text-blue-700"
+                        : requestStatus === "Closed"
+                        ? "ml-2 bg-green-100 text-green-700"
+                        : "ml-2 bg-amber-100 text-amber-700"
+                    }
+                  >
+                    {requestStatus}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Request Date:</span>
+                  <span className="ml-2 text-sm font-medium">{selectedRequest.requestDate}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Assignee:</span>
+                  <span className="ml-2 text-sm font-medium">{selectedRequest.dataSubject}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <span className="text-sm text-gray-500">Data Subject:</span>
+                  <span className="ml-2 text-sm font-medium">{selectedRequest.dataSubject}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Email:</span>
+                  <span className="ml-2 text-sm font-medium">{selectedRequest.email}</span>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Country:</span>
+                  <span className="ml-2 text-sm font-medium">United States</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Request Info Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="grid grid-cols-3 gap-6 mb-6">
-            <div>
-              <span className="text-sm text-gray-500">Status:</span>
-              <Badge
-                className={
-                  selectedRequest.status === "Open"
-                    ? "ml-2 bg-blue-100 text-blue-700"
-                    : "ml-2 bg-amber-100 text-amber-700"
-                }
-              >
-                {selectedRequest.status}
-              </Badge>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Request Date:</span>
-              <span className="ml-2 text-sm font-medium">{selectedRequest.requestDate}</span>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Assignee:</span>
-              <span className="ml-2 text-sm font-medium">{selectedRequest.dataSubject}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <span className="text-sm text-gray-500">Data Subject:</span>
-              <span className="ml-2 text-sm font-medium">{selectedRequest.dataSubject}</span>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Email:</span>
-              <span className="ml-2 text-sm font-medium">{selectedRequest.email}</span>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Country:</span>
-              <span className="ml-2 text-sm font-medium">United States</span>
-            </div>
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-8 py-6 space-y-6">
+            {/* Discovery Flow */}
+            {agentHandoffStarted && (
+              <DiscoveryFlow 
+                email={selectedRequest.email}
+                dataSubjectName={selectedRequest.dataSubject}
+                requestDate={selectedRequest.requestDate}
+                autoStart={true}
+                onStepChange={handleStepChange}
+                onStatusChange={handleStatusChange}
+                onComplete={() => {
+                  // Optional: Add completion handling
+                }}
+              />
+            )}
+            
+            {!agentHandoffStarted && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <Sparkles className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready for Agent Handoff</h3>
+                <p className="text-gray-600 mb-6">
+                  Click "Agent Handoff" above to start the automated discovery and deletion workflow for {selectedRequest.email}
+                </p>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Discovery Flow */}
-        {agentHandoffStarted && (
-          <DiscoveryFlow 
-            email={selectedRequest.email} 
-            autoStart={true}
-            onComplete={() => {
-              // Optional: Add completion handling
-            }}
-          />
-        )}
-        
-        {!agentHandoffStarted && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <Sparkles className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready for Agent Handoff</h3>
-            <p className="text-gray-600 mb-6">
-              Click "Agent Handoff" above to start the automated discovery and deletion workflow for {selectedRequest.email}
-            </p>
-          </div>
-        )}
       </div>
     );
   }
@@ -411,7 +534,10 @@ export function RequestTab() {
                   </td>
                   <td className="py-3 px-4">
                     <button
-                      onClick={() => setSelectedRequest(request)}
+                      onClick={() => {
+                        setSelectedRequest(request);
+                        setRequestStatus(request.status);
+                      }}
                       className="p-2 hover:bg-blue-50 rounded-full transition-colors"
                       title="View Request Details"
                     >

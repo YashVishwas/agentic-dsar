@@ -18,12 +18,12 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-white">
       {/* Sidebar - Fixed Position */}
       <div
         className={`${
           isSidebarCollapsed ? "w-20" : "w-64"
-        } fixed top-0 left-0 h-screen bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out flex flex-col z-50`}
+        } fixed top-0 left-0 h-screen bg-white border-r border-gray-100 shadow-sm transition-all duration-300 ease-in-out flex flex-col z-50`}
       >
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
@@ -100,7 +100,7 @@ export default function Home() {
               {tabs.find((t) => t.id === activeTab)?.label}
             </h2>
             <p className="text-gray-600">
-              {activeTab === "request" && "Submit a new data subject access request"}
+              {activeTab === "request" && "Manage Data Subject Request"}
               {activeTab === "app-discovery" && "Browse and authenticate with supported applications"}
               {activeTab === "user-discovery" && "Search for user data across registered applications"}
             </p>
